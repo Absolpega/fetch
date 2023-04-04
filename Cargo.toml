@@ -1,0 +1,22 @@
+[package]
+name = "fetch"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+colorful = "0.2.2"
+dirs = "5.0.0"
+grep = "0.2.11"
+libmacchina = "7.0.0"
+libmath = "0.2.1"
