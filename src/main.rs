@@ -13,14 +13,51 @@ use libmacchina::traits::GeneralReadout as _;
 use libmacchina::traits::MemoryReadout as _;
 use libmacchina::traits::KernelReadout as _;
 use libmacchina::traits::PackageReadout as _;
+use libmacchina::traits::ReadoutError;
 
 use math;
 
 use colorful::Colorful;
 //use colorful::Color;
 
+struct Pairs ( pub Vec<Pair> );
 
-fn print_next<'a, I: Iterator>(iter: &mut I) -> Option<<I as Iterator>::Item> where <I as Iterator>::Item: std::fmt::Display {
+impl Pairs {
+    fn new(pairs: Vec<Pair>) -> Self {
+        return Self (
+                pairs
+            )
+    }
+}
+
+struct Pair {
+    key: String,
+    value: Option<String>,
+}
+
+//let longest_key_lenght = pairs.0.iter().map(|x| x.key.len()).max().unwrap();
+
+impl Pair {
+    fn new(key: &str, value: Option<String>) -> Self {
+        return Self {
+            key: key.to_string(),
+            value, // same as value: value
+        }
+    }
+
+    fn print(&self, longest_key_lenght: usize, art: Option<String>) {
+        self.value.clone().and_then(|v| {
+            art.and_then(|a| {
+                println!("{}     {}: {}{}", a, self.key.clone().cyan().bold(), " ".repeat(longest_key_lenght - self.key.len()), v.remove_newline());
+
+                return None::<()>;
+            });
+            return None::<()>;
+        });
+    }
+}
+
+fn old_print_next<'a, I: Iterator>(iter: &mut I) -> Option<<I as Iterator>::Item> where <I as Iterator>::Item: std::fmt::Display {
     let next = iter.next();
     print!("{}     ", match next {
         Some(ref expr) => expr,
@@ -31,26 +68,38 @@ fn print_next<'a, I: Iterator>(iter: &mut I) -> Option<<I as Iterator>::Item> wh
     return next;
 }
 
-fn format_packages(packages: Vec<(PackageManager, usize)>) -> String {
-    let packages_iter = packages.iter();
-    let mut string = String::new();
+fn format_packages(packages: Option<Vec<(PackageManager, usize)>>) -> Option<String> {
+    match packages {
+        Some(packages) => {
+            let packages_iter = packages.iter();
+            let mut string = String::new();
 
-    for next in packages_iter {
-        string += &(next.1.to_string() + " (");
-        string += &(next.0.to_string() + "), ");
+            for next in packages_iter {
+                string += &(next.1.to_string() + " (");
+                string += &(next.0.to_string() + "), ");
+            }
+
+            string.pop();
+            string.pop();
+
+            return Some(string);
+        }
+        None => None
     }
-
-    string.pop();
-    string.pop();
-
-    return string;
 }
-fn format_time(uptime: usize) -> (f64, f64) {
-    let uptime_hours_seconds = math::round::floor((uptime as f64 / 60.0) / 60.0, 0) * 60.0 * 60.0;
-    return (
-        (uptime_hours_seconds / 60.0) / 60.0,
-        math::round::floor((uptime as f64 - uptime_hours_seconds) / 60.0, 0)
-        );
+fn format_time(uptime: Option<usize>) -> Option<String> {
+    match uptime {
+        Some(uptime) => {
+            let uptime_hours_seconds = math::round::floor((uptime as f64 / 60.0) / 60.0, 0) * 60.0 * 60.0;
+            return Some(
+                format!("{:.0} Hours, {:.0} Minutes",
+                        (uptime_hours_seconds / 60.0) / 60.0,
+                        math::round::floor((uptime as f64 - uptime_hours_seconds) / 60.0, 0)
+                       )
+                )
+        }
+        None => None
+    }
 }
 
 trait Format {
@@ -68,24 +117,34 @@ impl Format for String {
         return string;
     }
 }
-fn format_gpu(gpu: Vec<String>) -> String {
-    let gpu_iter = gpu.iter();
-    let mut string = String::new();
+fn format_gpu(gpu: Option<Vec<String>>) -> Option<String> {
+    match gpu {
+        Some(gpu) => {
+            let gpu_iter = gpu.iter();
+            let mut string = String::new();
 
-    for next in gpu_iter {
-        string += &(next.to_string() + ", ");
+            for next in gpu_iter {
+                string += &(next.to_string() + ", ");
+            }
+
+            string.pop();
+            string.pop();
+
+            return Some(string);
+        }
+        None => None
     }
-
-    string.pop();
-    string.pop();
-
-    return string;
 }
-fn format_memory(used_mem: u64, total_mem: u64) -> (f32, f32) {
-    return (
-        (used_mem   as f32 / 1024.0) / 1024.0,
-        (total_mem  as f32 / 1024.0) / 1024.0
-        );
+fn format_memory(memory: Option<(u64, u64)>) -> Option<String> {
+    match memory {
+        Some(memory) => {
+            return Some(format!("{:.2}GiB / {:.2}GiB",
+                    (memory.0   as f32 / 1024.0) / 1024.0,
+                    (memory.1   as f32 / 1024.0) / 1024.0
+                    ));
+        }
+        None => None
+    }
 }
 
 fn format_color(len_a: usize, len_b: usize) -> (usize, usize) {
@@ -103,8 +162,6 @@ fn format_color(len_a: usize, len_b: usize) -> (usize, usize) {
 }
 
 fn main() {
-    let mut art_iter = logos::ARCH_ART.iter().peekable();
-
     let general_readout = GeneralReadout::new();
     let memory_readout  = MemoryReadout::new();
     let kernel_readout  = KernelReadout::new();
@@ -120,8 +177,10 @@ fn main() {
     //let kernel              = get::new_error("not defined");
     let uptime              = general_readout.uptime();
     //let uptime              = get::new_error("not defined");
-    let packages            = package_readout.count_pkgs();
+    
+    let packages: Result<Vec<(PackageManager, usize)>, ReadoutError> = Ok(package_readout.count_pkgs());
     //let packages            = get::new_error("not defined");
+    
     let shell               = general_readout.shell(libmacchina::traits::ShellFormat::Relative, libmacchina::traits::ShellKind::Current);
     //let shell               = get::new_error("not defined");
     let resolution          = general_readout.resolution();
@@ -134,103 +193,57 @@ fn main() {
     //let icons               = get::new_error("not defined");
     let terminal            = general_readout.terminal();
     //let terminal            = get::new_error("not defined");
-    let terminal_font       = get::new_error("unfinished (this one is really hard)");
-    //let terminal_font       = get::new_error("not defined");
     let cpu                 = general_readout.cpu_model_name();
     //let cpu                 = get::new_error("not defined");
     let gpu                 = general_readout.gpus();
     //let gpu                 = Err(get::new_error("not defined"));
-    let total_mem           = memory_readout.total();
-    //let total_mem           = get::new_error("not defined");
+    
     let used_mem            = memory_readout.used();
     //let used_mem            = get::new_error("not defined");
+    let total_mem           = memory_readout.total();
+    //let total_mem           = get::new_error("not defined");
+    
+    let mut memory: Result<(u64, u64), ReadoutError> = Err(ReadoutError::NotImplemented);
+    if used_mem.is_ok() && total_mem.is_ok() {
+        memory = Ok((used_mem.unwrap(), total_mem.unwrap()));
+    }
+
+    let mut art_iter = logos::ARCH_ART.iter().peekable();
 
     if user.is_ok() && hostname.is_ok() {
-        print_next(&mut art_iter);
+        old_print_next(&mut art_iter);
         println!("{}@{}", user.clone().unwrap().cyan().bold(), hostname.clone().unwrap().cyan().bold());
-        print_next(&mut art_iter);
+        old_print_next(&mut art_iter);
         println!("{:-<1$}", "", format!("{}@{}", user.unwrap(), hostname.unwrap()).len());
     }
 
-    if distro.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "OS".cyan().bold(), distro.unwrap());
-    }
+    let pairs = Pairs::new(vec!(
+            Pair::new("OS",         distro                          .ok()),
+            Pair::new("Kernel",     kernel                          .ok()),
+            Pair::new("Uptime",     format_time(        uptime      .ok())),
+            Pair::new("Packages",   format_packages(    packages    .ok())),
+            Pair::new("Shell",      shell                           .ok()),
+            //Pair::new("Resolution", resolution                      .ok()),
+            Pair::new("WM",         window_manager                  .ok()),
+            Pair::new("Theme",      theme                           .ok()),
+            Pair::new("Icons",      icons                           .ok()),
+            Pair::new("Terminal",   terminal                        .ok()),
+            Pair::new("CPU",        cpu                             .ok()),
+            Pair::new("GPU",        format_gpu(         gpu         .ok())),
+            Pair::new("Memory",     format_memory(      memory      .ok())),
+            ));
 
-    if kernel.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Kernel".cyan().bold(), kernel.unwrap());
-    }
+    let longest_key_lenght = pairs.0.iter().map(|x| x.key.len()).max().unwrap();
 
-    if uptime.is_ok() {
-        print_next(&mut art_iter);
-        let formatted_time = format_time(uptime.unwrap());
-        println!("{}: {:.0} Hours, {:.0} Minutes", "Uptime".cyan().bold(), formatted_time.0, formatted_time.1);
-    }
-
-    /* packages */ {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Packages".cyan().bold(), format_packages(packages));
-    }
-
-    if shell.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Shell".cyan().bold(), shell.unwrap().remove_newline());
-    }
-
-    if resolution.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Resolution".cyan().bold(), resolution.unwrap());
-    }
-
-    if window_manager.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "WM".cyan().bold(), window_manager.unwrap());
-    }
-
-    if theme.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Theme".cyan().bold(), theme.unwrap().remove_newline());
-    }
-
-    if icons.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Icons".cyan().bold(), icons.unwrap().remove_newline());
-    }
-
-    if terminal.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Terminal".cyan().bold(), terminal.unwrap().remove_newline());
-    }
-
-    if terminal_font.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "Terminal Font".cyan().bold(), terminal_font.unwrap());
-    }
-
-    if cpu.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "CPU".cyan().bold(), cpu.unwrap());
-    }
-
-    if gpu.is_ok() {
-        print_next(&mut art_iter);
-        println!("{}: {}", "GPU".cyan().bold(), format_gpu(gpu.unwrap()));
-    }
-
-    if used_mem.is_ok() && total_mem.is_ok() {
-        print_next(&mut art_iter);
-        let formatted_memory = format_memory(used_mem.unwrap(), total_mem.unwrap());
-        println!("{}: {:.2}GiB / {:.2}GiB", "Memory".cyan().bold(), formatted_memory.0, formatted_memory.1);
-    }
+    pairs.0.iter().for_each(|x| x.print(longest_key_lenght, Some(art_iter.next().unwrap().to_string())));
 
     /* colors */ {
-        print_next(&mut art_iter);
+        old_print_next(&mut art_iter);
         println!();
 
         // FIXME: do not use unwrap
         let (len_normal, len_light) = format_color(
-            print_next(&mut art_iter).unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len(),
+            old_print_next(&mut art_iter).unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len(),
             art_iter.peek().unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len()
             );
 
@@ -251,7 +264,7 @@ fn main() {
             "   ".bg_light_gray(),
             );
 
-        print_next(&mut art_iter);
+        old_print_next(&mut art_iter);
         print!("{: <1$}", "", len_light);
         println!(
             "{}{}{}{}{}{}{}{}",
@@ -266,10 +279,7 @@ fn main() {
             );
     }
 
-
-
-
-    while print_next(&mut art_iter).is_some() {
+    while old_print_next(&mut art_iter).is_some() {
         println!();
     };
 

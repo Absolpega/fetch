@@ -18,8 +18,6 @@ pub fn theme(name: &str) -> Error<String> {
     let mut ret: Error<String> = Err(Box::from(""));
     let matcher = RegexMatcher::new(name).unwrap();
     Searcher::new().search_file(&matcher, &File::open(dirs::config_dir().ok_or("")?.join("gtk-3.0").join("settings.ini"))?, UTF8(|_lnum, line| {
-        // TODO: get part after gtk-theme-name
-
         ret = Ok(line.split("=").nth(1).ok_or(io::Error::new(io::ErrorKind::Other, ""))?.to_string());
         return Ok(false);
     }))?;

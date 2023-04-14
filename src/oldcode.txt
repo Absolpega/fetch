@@ -1,0 +1,69 @@
+maybe i might need to use this one day again?
+
+
+    //if distro.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "OS".cyan().bold(), distro.unwrap());
+    //}
+    //
+    //if kernel.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Kernel".cyan().bold(), kernel.unwrap());
+    //}
+    //
+    //if uptime.is_ok() {
+    //    print_next(&mut art_iter);
+    //    let formatted_time = format_time(uptime.unwrap());
+    //    println!("{}: {:.0} Hours, {:.0} Minutes", "Uptime".cyan().bold(), formatted_time.0, formatted_time.1);
+    //}
+    //
+    // /* packages */ {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Packages".cyan().bold(), format_packages(packages));
+    //}
+    //
+    //if shell.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Shell".cyan().bold(), shell.unwrap().remove_newline());
+    //}
+    //
+    //if resolution.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Resolution".cyan().bold(), resolution.unwrap());
+    //}
+    //
+    //if window_manager.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "WM".cyan().bold(), window_manager.unwrap());
+    //}
+    //
+    //if theme.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Theme".cyan().bold(), theme.unwrap().remove_newline());
+    //}
+    //
+    //if icons.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Icons".cyan().bold(), icons.unwrap().remove_newline());
+    //}
+    //
+    //if terminal.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "Terminal".cyan().bold(), terminal.unwrap().remove_newline());
+    //}
+    //
+    //if cpu.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "CPU".cyan().bold(), cpu.unwrap());
+    //}
+    //
+    //if gpu.is_ok() {
+    //    print_next(&mut art_iter);
+    //    println!("{}: {}", "GPU".cyan().bold(), format_gpu(gpu.unwrap()));
+    //}
+    //
+    //if used_mem.is_ok() && total_mem.is_ok() {
+    //    print_next(&mut art_iter);
+    //    let formatted_memory = format_memory(used_mem.unwrap(), total_mem.unwrap());
+    //    println!("{}: {:.2}GiB / {:.2}GiB", "Memory".cyan().bold(), formatted_memory.0, formatted_memory.1);
+    //}

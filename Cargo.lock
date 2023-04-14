@@ -339,6 +339,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fetch"
+version = "0.1.0"
+dependencies = [
+ "colorful",
+ "dirs 5.0.0",
+ "grep",
+ "libmacchina",
+ "libmath",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -709,17 +720,6 @@ dependencies = [
  "winreg",
  "wmi",
  "x11rb",
-]
-
-[[package]]
-name = "libmacchina_test"
-version = "0.1.0"
-dependencies = [
- "colorful",
- "dirs 5.0.0",
- "grep",
- "libmacchina",
- "libmath",
 ]
 
 [[package]]
