@@ -45,9 +45,9 @@ impl Pair {
         }
     }
 
-    fn print(&self, longest_key_lenght: usize, art: Option<String>) {
+    fn print(&self, longest_key_lenght: usize, art: &mut std::slice::Iter<'_, &str>) {
         self.value.clone().and_then(|v| {
-            art.and_then(|a| {
+            art.next().and_then(|a| {
                 println!("{}     {}: {}{}", a, self.key.clone().cyan().bold(), " ".repeat(longest_key_lenght - self.key.len()), v.remove_newline());
 
                 return None::<()>;
@@ -208,7 +208,8 @@ fn main() {
         memory = Ok((used_mem.unwrap(), total_mem.unwrap()));
     }
 
-    let mut art_iter = logos::ARCH_ART.iter().peekable();
+    let art = logos::ARCH_ART;
+    let mut art_iter = art.iter();
 
     if user.is_ok() && hostname.is_ok() {
         old_print_next(&mut art_iter);
@@ -223,7 +224,7 @@ fn main() {
             Pair::new("Uptime",     format_time(        uptime      .ok())),
             Pair::new("Packages",   format_packages(    packages    .ok())),
             Pair::new("Shell",      shell                           .ok()),
-            //Pair::new("Resolution", resolution                      .ok()),
+            Pair::new("Resolution", resolution                      .ok()),
             Pair::new("WM",         window_manager                  .ok()),
             Pair::new("Theme",      theme                           .ok()),
             Pair::new("Icons",      icons                           .ok()),
@@ -235,7 +236,8 @@ fn main() {
 
     let longest_key_lenght = pairs.0.iter().map(|x| x.key.len()).max().unwrap();
 
-    pairs.0.iter().for_each(|x| x.print(longest_key_lenght, Some(art_iter.next().unwrap().to_string())));
+    //pairs.0.iter().for_each(|x| x.print(longest_key_lenght, &mut Box::new(art_iter.map(|x| x.to_string()) ) ));
+    pairs.0.iter().for_each(|x| x.print(longest_key_lenght, &mut art_iter ));
 
     /* colors */ {
         old_print_next(&mut art_iter);
@@ -244,7 +246,7 @@ fn main() {
         // FIXME: do not use unwrap
         let (len_normal, len_light) = format_color(
             old_print_next(&mut art_iter).unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len(),
-            art_iter.peek().unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len()
+            art_iter.clone().peekable().peek().unwrap().chars().filter(|x| !x.is_control()).collect::<Vec<char>>().len()
             );
 
         //println!("{}, {}", print_next(&mut art_iter).unwrap().len(), art_iter.peek().unwrap().len());
