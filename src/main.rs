@@ -165,7 +165,7 @@ fn main() {
     let user = general_readout.username();
     let hostname = general_readout.hostname();
 
-    let distro = general_readout.distribution();
+    let distro = general_readout.distribution().or(general_readout.os_name());
     let kernel = kernel_readout.os_release();
     let uptime = general_readout.uptime();
 
@@ -178,10 +178,7 @@ fn main() {
     );
 
     let resolution = general_readout.resolution();
-    let window_manager = match general_readout.window_manager() {
-        Ok(window_manager) => Ok(window_manager),
-        Err(_) => get::window_manager(),
-    };
+    let window_manager = general_readout.window_manager().or(get::window_manager());
     let desktop_environment = general_readout.desktop_environment();
     let theme = get::theme("gtk-theme-name");
     let icons = get::theme("gtk-icon-theme-name");
