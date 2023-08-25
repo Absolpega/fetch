@@ -1,26 +1,61 @@
 use std::fs::File;
-use std::error;
 use std::io;
+use std::io::BufRead;
 
-use dirs;
+use libmacchina::traits::ReadoutError;
 
-//use grep::matcher::Matcher;
-use grep::regex::RegexMatcher;
-use grep::searcher::Searcher;
-use grep::searcher::sinks::UTF8;
+pub type Error<T> = Result<T, ReadoutError>;
 
-pub type Error<T> = Result<T, Box<dyn error::Error>>;
-pub fn new_error(string: &str) -> Error<String> {
-    return Err(Box::from(string.to_string()));
+pub fn theme(keyword: &str) -> Error<String> {
+    Ok(io::BufReader::new(File::open(
+        dirs::config_dir()
+            .ok_or(ReadoutError::MetricNotAvailable)?
+            .join("gtk-3.0")
+            .join("settings.ini"),
+    )?)
+    .lines()
+    .find(|line| match line {
+        Ok(line) => line.contains(keyword),
+        _ => false,
+    })
+    .ok_or(ReadoutError::MetricNotAvailable)??
+    .split('=')
+    .nth(1)
+    .ok_or(ReadoutError::MetricNotAvailable)?
+    .to_string())
 }
 
-pub fn theme(name: &str) -> Error<String> {
-    let mut ret: Error<String> = Err(Box::from(""));
-    let matcher = RegexMatcher::new(name).unwrap();
-    Searcher::new().search_file(&matcher, &File::open(dirs::config_dir().ok_or("")?.join("gtk-3.0").join("settings.ini"))?, UTF8(|_lnum, line| {
-        ret = Ok(line.split("=").nth(1).ok_or(io::Error::new(io::ErrorKind::Other, ""))?.to_string());
-        return Ok(false);
-    }))?;
+use wayland_sys::client::*;
+use wayland_sys::ffi_dispatch;
 
-    return ret;
+use nix::sys::socket::*;
+
+use std::os::fd::AsRawFd;
+
+pub fn window_manager() -> Error<String> {
+    if !is_lib_available() {
+        return Err(ReadoutError::MetricNotAvailable);
+    }
+
+    let display_ptr = unsafe {
+        ffi_dispatch!(
+            wayland_client_handle(),
+            wl_display_connect,
+            ::std::ptr::null()
+        )
+    };
+
+    if display_ptr.is_null() {
+        return Err(ReadoutError::MetricNotAvailable);
+    }
+
+    let display_fd =
+        unsafe { ffi_dispatch!(wayland_client_handle(), wl_display_get_fd, display_ptr) }
+            .as_raw_fd();
+
+    let pid = getsockopt(display_fd, sockopt::PeerCredentials)
+        .map_err(|_| ReadoutError::MetricNotAvailable)?
+        .pid();
+
+    Ok(std::fs::read_to_string(format!("/proc/{}/comm", pid))?)
 }
