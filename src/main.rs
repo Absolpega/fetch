@@ -1,5 +1,7 @@
 mod get;
 
+use get::Error;
+
 use std::cmp::Ordering;
 
 use libmacchina::traits::PackageManager;
@@ -16,56 +18,57 @@ use colorful::Colorful;
 
 const SPACING: usize = 5;
 
-struct Pair {
+struct Readout {
     key: String,
-    value: Option<String>,
+    value: Error<String>,
 }
 
 //let longest_key_lenght = pairs.0.iter().map(|x| x.key.len()).max().unwrap();
 
-impl Pair {
-    fn new(key: &str, value: Option<String>) -> Self {
+impl Readout {
+    fn new(key: &str, value: Error<String>) -> Self {
         Self {
             key: key.to_string(),
             value, // same as value: value
         }
     }
 
-    fn print(&self, longest_key_lenght: usize, art: &mut dyn std::iter::Iterator<Item = &str>) {
-        self.value.clone().and_then(|v| {
-            art.next().and_then(|a| {
+    fn print<'a>(
+        &self,
+        longest_key_lenght: usize,
+        last_len: usize,
+        art: &mut dyn std::iter::Iterator<Item = &'a str>,
+    ) -> Option<&'a str> {
+        match self.value.clone() {
+            Ok(value) => {
+                let art_line = print_next_art_line(last_len, art);
                 println!(
-                    "{}{}{}: {}{}",
-                    a,
-                    " ".repeat(SPACING),
+                    "{}: {}{}",
                     self.key.clone().cyan().bold(),
                     " ".repeat(longest_key_lenght - self.key.len()),
-                    v.remove_newline()
+                    value.remove_newline()
                 );
-
-                None::<()>
-            });
-            None::<()>
-        });
+                art_line
+            }
+            _ => None,
+        }
     }
 }
 
-fn print_next_art_line<I: Iterator>(iter: &mut I) -> Option<<I as Iterator>::Item>
-where
-    <I as Iterator>::Item: std::fmt::Display,
-{
-    let next = iter.next();
-    print!(
-        "{}{}",
-        match next {
-            Some(ref expr) => expr,
-            None => {
-                return None;
-            }
-        },
-        " ".repeat(SPACING)
-    );
-    next
+fn print_next_art_line<'a>(
+    last_len: usize,
+    iter: &mut dyn std::iter::Iterator<Item = &'a str>,
+) -> Option<&'a str> {
+    match iter.next() {
+        Some(next) => {
+            print!("{}{}", next, " ".repeat(SPACING));
+            Some(next)
+        }
+        None => {
+            print!("{}{}", " ".repeat(last_len), " ".repeat(SPACING));
+            None
+        }
+    }
 }
 
 trait Format {
@@ -84,43 +87,46 @@ impl Format for String {
     }
 }
 
-fn format_packages(packages: Option<Vec<(PackageManager, usize)>>) -> Option<String> {
+fn format_packages(packages: Error<Vec<(PackageManager, usize)>>) -> Error<String> {
     match packages {
-        Some(packages) => {
-            let packages_iter = packages.iter();
+        Ok(packages) => {
+            if packages.is_empty() {
+                return Err(ReadoutError::MetricNotAvailable);
+            }
+
             let mut string = String::new();
 
-            for next in packages_iter {
-                string += &(next.1.to_string() + " (");
-                string += &(next.0.to_string() + "), ");
+            for package in packages {
+                string += &(package.1.to_string() + " (");
+                string += &(package.0.to_string() + "), ");
             }
 
             string.pop();
             string.pop();
 
-            Some(string)
+            Ok(string)
         }
-        None => None,
+        Err(x) => Err(x),
     }
 }
-fn format_time(uptime: Option<usize>) -> Option<String> {
+fn format_time(uptime: Error<usize>) -> Error<String> {
     match uptime {
-        Some(uptime) => {
+        Ok(uptime) => {
             let uptime_hours_seconds =
                 math::round::floor((uptime as f64 / 60.0) / 60.0, 0) * 60.0 * 60.0;
-            Some(format!(
+            Ok(format!(
                 "{:.0} Hours, {:.0} Minutes",
                 (uptime_hours_seconds / 60.0) / 60.0,
                 math::round::floor((uptime as f64 - uptime_hours_seconds) / 60.0, 0)
             ))
         }
-        None => None,
+        Err(x) => Err(x),
     }
 }
 
-fn format_gpu(gpu: Option<Vec<String>>) -> Option<String> {
+fn format_gpu(gpu: Error<Vec<String>>) -> Error<String> {
     match gpu {
-        Some(gpu) => {
+        Ok(gpu) => {
             let gpu_iter = gpu.iter();
             let mut string = String::new();
 
@@ -131,12 +137,12 @@ fn format_gpu(gpu: Option<Vec<String>>) -> Option<String> {
             string.pop();
             string.pop();
 
-            Some(string)
+            Ok(string)
         }
-        None => None,
+        Err(x) => Err(x),
     }
 }
-fn format_memory(memory: Option<(u64, u64)>) -> Option<String> {
+fn format_memory(memory: Error<(u64, u64)>) -> Error<String> {
     memory.map(|(used, total)| {
         format!(
             "{:.2}GiB / {:.2}GiB",
@@ -156,16 +162,16 @@ impl AddTuple for (usize, usize) {
     }
 }
 
+fn line_length(string: &str) -> usize {
+    string.chars().filter(|c| !c.is_control()).count()
+}
+
 fn main() {
     let general_readout = GeneralReadout::new();
     let memory_readout = MemoryReadout::new();
     let kernel_readout = KernelReadout::new();
     let package_readout = PackageReadout::new();
 
-    let user = general_readout.username();
-    let hostname = general_readout.hostname();
-
-    let distro = general_readout.distribution().or(general_readout.os_name());
     let kernel = kernel_readout.os_release();
     let uptime = general_readout.uptime();
 
@@ -194,15 +200,17 @@ fn main() {
     let art = include_str!("arch.txt");
     let mut art_iter = art.lines();
 
-    if let (Ok(user), Ok(hostname)) = (user, hostname) {
-        print_next_art_line(&mut art_iter);
+    let last_len = line_length(art.lines().last().unwrap());
+
+    if let (Ok(user), Ok(hostname)) = (general_readout.username(), general_readout.hostname()) {
+        print_next_art_line(last_len, &mut art_iter);
         println!(
             "{}@{}",
             user.clone().cyan().bold(),
             hostname.clone().cyan().bold()
         );
 
-        print_next_art_line(&mut art_iter);
+        print_next_art_line(last_len, &mut art_iter);
         println!(
             "{}",
             "-".repeat(format!("{}@{}", user, hostname).chars().count())
@@ -210,36 +218,39 @@ fn main() {
     }
 
     let pairs = vec![
-        Pair::new("OS", distro.ok()),
-        Pair::new("Kernel", kernel.ok()),
-        Pair::new("Uptime", format_time(uptime.ok())),
-        Pair::new("Packages", format_packages(packages.ok())),
-        Pair::new("Shell", shell.ok()),
-        Pair::new("Resolution", resolution.ok()),
-        Pair::new("DE", desktop_environment.ok()),
-        Pair::new("WM", window_manager.ok()),
-        Pair::new("Theme", theme.ok()),
-        Pair::new("Icons", icons.ok()),
-        Pair::new("Terminal", terminal.ok()),
-        Pair::new("CPU", cpu.ok()),
-        Pair::new("GPU", format_gpu(gpu.ok())),
-        Pair::new("Memory", format_memory(memory.ok())),
+        Readout::new(
+            "OS",
+            general_readout.distribution().or(general_readout.os_name()),
+        ),
+        Readout::new("Kernel", kernel),
+        Readout::new("Uptime", format_time(uptime)),
+        Readout::new("Packages", format_packages(packages)),
+        Readout::new("Shell", shell),
+        Readout::new("Resolution", resolution),
+        Readout::new("DE", desktop_environment),
+        Readout::new("WM", window_manager),
+        Readout::new("Theme", theme),
+        Readout::new("Icons", icons),
+        Readout::new("Terminal", terminal),
+        Readout::new("CPU", cpu),
+        Readout::new("GPU", format_gpu(gpu)),
+        Readout::new("Memory", format_memory(memory)),
     ];
 
     let longest_key_lenght = pairs.iter().map(|x| x.key.len()).max().unwrap();
 
-    pairs
-        .iter()
-        .for_each(|x| x.print(longest_key_lenght, &mut art_iter));
+    pairs.iter().for_each(|x| {
+        x.print(longest_key_lenght, last_len, &mut art_iter);
+    });
 
     /* colors */
     {
         // FIXME: tomorrow
 
-        print_next_art_line(&mut art_iter);
+        print_next_art_line(last_len, &mut art_iter);
         println!();
 
-        let next = print_next_art_line(&mut art_iter.clone())
+        let next = print_next_art_line(last_len, &mut art_iter.clone())
             .map(|x| x.chars().filter(|c| !c.is_control()).count());
 
         art_iter.next();
@@ -251,22 +262,14 @@ fn main() {
             .copied()
             .map(|x| x.chars().filter(|c| !c.is_control()).count());
 
-        let last_len = art
-            .lines()
-            .last()
-            .unwrap()
-            .chars()
-            .filter(|c| !c.is_control())
-            .count();
-
         let (len_normal, len_light) = match (next, peek) {
             (Some(next), Some(peek)) => match next.cmp(&peek) {
                 Ordering::Greater => (0, next - peek),
                 Ordering::Less => (peek - next, 0),
                 _ => (0, 0),
             },
-            (Some(next), None) => (next, last_len + next + SPACING),
-            (None, None) => (last_len + SPACING, last_len + SPACING),
+            (Some(next), None) => (next, next),
+            (None, None) => (0, 0),
             _ => (0, 0),
         };
 
@@ -283,7 +286,7 @@ fn main() {
             "   ".bg_light_gray(),
         );
 
-        print_next_art_line(&mut art_iter);
+        print_next_art_line(last_len, &mut art_iter);
         print!("{}", " ".repeat(len_light));
         println!(
             "{}{}{}{}{}{}{}{}",
@@ -298,7 +301,7 @@ fn main() {
         );
     }
 
-    while print_next_art_line(&mut art_iter).is_some() {
+    while print_next_art_line(last_len, &mut art_iter).is_some() {
         println!();
     }
 

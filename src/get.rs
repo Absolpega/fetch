@@ -25,13 +25,18 @@ pub fn theme(keyword: &str) -> Error<String> {
     .to_string())
 }
 
+#[cfg(unix)]
 use wayland_sys::client::*;
+#[cfg(unix)]
 use wayland_sys::ffi_dispatch;
 
+#[cfg(unix)]
 use nix::sys::socket::*;
 
+#[cfg(unix)]
 use std::os::fd::AsRawFd;
 
+#[cfg(unix)]
 pub fn window_manager() -> Error<String> {
     if !is_lib_available() {
         return Err(ReadoutError::MetricNotAvailable);
@@ -58,4 +63,9 @@ pub fn window_manager() -> Error<String> {
         .pid();
 
     Ok(std::fs::read_to_string(format!("/proc/{}/comm", pid))?)
+}
+
+#[cfg(windows)]
+pub fn window_manager() -> Error<String> {
+    Err(ReadoutError::NotImplemented)
 }
