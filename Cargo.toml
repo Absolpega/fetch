@@ -17,9 +17,10 @@ opt-level = 3
 [dependencies]
 colorful = "0.2.2"
 dirs = "5.0.0"
-libmacchina = "7.0.0"
+#libmacchina = "7.0.0"
+libmacchina = { git = "https://github.com/absolpega/libmacchina" }
 libmath = "0.2.1"
-nix = { version = "0.26.2", features = ["socket"], default-features = false }
+nix = { version = "0.27", features = ["socket"], default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 wayland-sys = { version = "0.31.1", features = ["dlopen", "client"] }

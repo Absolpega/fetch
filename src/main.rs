@@ -184,7 +184,7 @@ fn main() {
     );
 
     let resolution = general_readout.resolution();
-    let window_manager = general_readout.window_manager().or(get::window_manager());
+    let window_manager = general_readout.window_manager();
     let desktop_environment = general_readout.desktop_environment();
     let theme = get::theme("gtk-theme-name");
     let icons = get::theme("gtk-icon-theme-name");
